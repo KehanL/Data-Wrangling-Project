@@ -6,10 +6,124 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, fig.height = 5, fig.width = 8, warning = FALSE) 
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(magrittr)
+library(dplyr)
+library(stringr)
+library(tidytext)
+library(rvest)
+library(twitteR)
+library(Lahman)
+```
+
+## Introduction
+First I need to make an introduction about the first data I will use. <br>
+This database contains pitching, hitting, and fielding statistics for Major League Baseball from 1871 through 2018. It includes data from the two current leagues (American and National), the four other "major" leagues (American Association, Union Association, Players League, and Federal League), and the National Association of 1871-1875. <br>
+This database was created by Sean Lahman, who pioneered the effort to make baseball statistics freely available to the general public. What started as a one man effort in 1994 has grown tremendously, and now a team of researchers have collected their efforts to make this the largest and most accurate source for baseball statistics available anywhere. <br>
+The package contains several main tables: <br>
+Master (people): Player names, dates of birth, death and other biographical info. <br> 
+Batting: Player statistic of act of facing the opposing pitcher and trying to produce offense for one's team <br>
+Pitching: A pitch is the act of throwing a baseball toward home plate to start a play. <br>
+Fielding: The performance of each player. <br>
+```{r}
+
+```
+
+
+
+
+First we need to load data. 
+```{r}
+baseball1 = Master%>%
+  filter(!is.na(birthYear) &!is.na(nameFirst))
+
+baseball2 = baseball1%>%
+  select(birthYear,nameFirst)%>%
+  mutate(year= birthYear, names = nameFirst)%>%
+  group_by(year,names)%>%
+  summarise(n = n())%>%
+  arrange(desc(n))
+head(baseball2)
+
+year_count = baseball2%>%
+  group_by(year)%>%
+  summarise(count = sum(n))
+
+nameUse = left_join(baseball2,year_count, by='year')%>%
+  mutate(prop=n/count,count=NULL)
+head(nameUse)
 ```
 
 ```{r}
-library(tidyverse)
+head(Fielding)
+summary(Fielding$G)
+Gnaremove= Fielding%>% 
+  filter(!is.na(Fielding$G))
+head(Gnaremove)
+
+newfielding=Fielding%>%
+  select(playerID,G)%>%
+  group_by(playerID)%>%
+  summarise(career_total=sum(G))
+  
+
+Master.small <- Master %>% 
+  select(playerID,nameFirst, nameLast, nameGiven,birthYear)
+
+careertotal <-inner_join(newfielding, Master.small)%>%
+  arrange(desc(career_total))
+
+head(careertotal)
 ```
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
 
