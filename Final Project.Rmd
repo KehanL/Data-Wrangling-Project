@@ -25,6 +25,8 @@ library(gridExtra)
 library(grid)
 library(choroplethr)
 library(choroplethrMaps)
+library(rtweet)
+library(maps)
 ```
 
 ## Introduction
@@ -36,7 +38,7 @@ Master (people): Player names, dates of birth, death and other biographical info
 Batting: Player statistic of act of facing the opposing pitcher and trying to produce offense for one's team <br>
 Pitching: A pitch is the act of throwing a baseball toward home plate to start a play. <br>
 Fielding: The performance of each player. <br>
-The reason that I choose this dataset 
+The reason that I choose this dataset because I am interested in baseball and its history. I want to explore the statistic aspect of baseball. 
 <br>
 
 ##facts about the People Data
@@ -138,9 +140,13 @@ SLG <- Batting %>%
   select(playerID, birthYear, nameFirst, nameLast, SLG) %>%
   arrange(desc(SLG))
 head(SLG)
+mean(SLG$SLG)
 ```
 
-Above is the data in history and I want to 
+Above is the data in history and I want to explore the data of 2019 season. <br>
+Comparing with the data between the history and 2019 season, we could see that the SLG score in 2019 season is much lower than the SLG score before. I think there are two reasons behind this fact: <br>
+1. The competition of the legend has been increased from last century to 21st century. The disparity of skill among players has benn shrinked. Therefore, it is very hard to see the arise of a superstar in MLB today. <br>
+2. The history data has been collected for a long period of time, which means that the population is very huge compared with our population in 2019 season. Therefore, it is not surprising to see some outstanding player statistic exists in a long run period of time. And we could see that the average is not that high, which proves my assumption. <br>
 ```{r}
 MLB2019.row <- "https://www.mlb.com/prospects/stats/draft-statistics" %>%
   read_html()%>%
@@ -151,13 +157,16 @@ MLB2019 = MLB2019.row[[1]]
 ```{r}
 head(MLB2019)
 MLB2019 = MLB2019[1:26] %>%
-  na.omit()
+  na.omit() %>% 
+  select(Rd, Player, AVG, SLG, OPS) %>%
+  arrange(desc(SLG))
 head(MLB2019)
 ```
 
 ## Salary
-The next thing I am interested in is about salaries.
-
+The next thing I am interested in is about salaries. <br>
+I first want to check the MAX, MIN and average salary of different teams.  <br>
+From the output we could see that LAA team(Los Angeles Angels) has the best average salaries among the team while NYA(New York Yankees) has the highest salary among other team. 
 ```{r}
 head(Salaries)
 salary.table <- Salaries %>%
@@ -167,7 +176,21 @@ salary.table <- Salaries %>%
   
 head(salary.table)
 ```
+I also show a plot of the average and max salaries thoughout years. From the plot we could see that average salary is increasing consistently because the econnomic development, while the max salary has some bump around. This might be due to some huge baseball star arises when the peak exists. 
+```{r}
+salary.by.year <- Salaries %>%
+  group_by(yearID) %>%
+  summarise(Avg.salary = mean(salary), MAX.salary = max(salary), MIN.salary = min(salary))
+head(salary.by.year)
+ggplot(data = salary.by.year,aes(x = yearID)) +
+  geom_line(aes(y = Avg.salary), color = "red") +
+  geom_line(aes(y = MAX.salary), color = "blue") +
+  ggtitle("Average and Max Salaries by year")
+```
 
+## Popular name 
+I also want to determine the 5 most popular first names in baseball among players. After inital try, I find out that there are too many data statistic because this is a quite large database. Therefore, we need to set some constraints on the dataset we get. Since there are many players who just played serveral games in baseball league, I decide to filter out the players who just play several games in career. <br>
+First, I need to filter out the NA statistic in game record. Then I realized another issue that the table just records the game a player played in that single year. They do not have the games a player played in his career. Therefore, I need to first make a variable career total to sum up all the games a single player plays. <br>
 
 ```{r}
 Gnaremove= Fielding%>% 
@@ -188,7 +211,7 @@ careertotal <-inner_join(newfielding, Master.small)%>%
 head(careertotal)
 ```
 
-
+After collecting the career total games data, I am able to work out to determine the 5 most popular first names in baseball among players who played at least 500 games.
 ```{r}
 baseball1 = Master%>%
   filter(!is.na(birthYear) &!is.na(nameFirst))
@@ -207,58 +230,80 @@ name_count <- inner_join(baseball1, frequent_player) %>%
   arrange(desc(count))
 name_count
 ```
-
+After get the name and count tables, we could see that the most popular names are Mike, Joe, John, Bill and Jim. Then I want to plot them on the same graphs. 
 ```{r}
 popularName <- baseball2 %>%
   filter(names == "Mike" | names == "Joe" | names == "John" | names == "Bill" | names == "Jim" ) %>%
   arrange(names, year)
-popularName
 ```
 
 ```{r}
 ggplot(data=popularName, aes(year, n, color = names)) + geom_line() + ggtitle("5 Most Popular Names over Years in BaseBall Master") + xlab("Year") + ylab("Frequency") + theme(plot.title = element_text(hjust = 0.5)) +  scale_colour_discrete(name = "First Name")
 ```
+
+## Connect with twitter
+I want to see how people are concerning with MLB baseball league during such a special period of time. Using the package rtweet could help me gather the information from twitter, you will need to authorization using your own twitter account. <br>
+Here is the link for reference: "https://www.rdocumentation.org/packages/rtweet/versions/0.4.0" <br>
+And in order to retain the orginal information, I filter out the retweet data. 
+
+```{r}
+source("keys.R")
+token
+## search for 8000 tweets using the MLB hashtag
+rt1 <- search_tweets(
+  "#MLB", n = 8000, include_rts = FALSE
+)
+
 ```
 
 
+From the plot we could see that there are less and less poeple are concerning about MLB. I think this is because at this special period, with MLB has already been lockout, the information of MLB are quite not popular among people. <br>
+```{r}
+## plot time series of tweets
+rt1 %>%
+  ts_plot("3 hours") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold")) +
+  ggplot2::labs(
+    x = NULL, y = NULL,
+    title = "Frequency of #MLB Twitter statuses from past few days",
+    subtitle = "Twitter status (tweet) counts aggregated using three-hour intervals",
+    caption = "\nSource: Data collected from Twitter's REST API via rtweet"
+  )
+```
+
+And I also want to share a note on in which state people are concerned about the MLB. <br>
+However, I do not know if there is something wrong with my code or not. My plot contains little information. As you cansee, there are quite little information about the people who sent tweets related to MLB. And many of the states do not have any tweets related to MLB hashtag. 
+```{r}
+## search for 3000 tweets sent from the US
+rt2 <- search_tweets(
+  "#MLB", geocode = lookup_coords("usa"), n = 3000
+)
+
+## create lat/lng variables using all available tweet and profile geo-location data
+rt2 <- lat_lng(rt2)
+
+## plot state boundaries
+par(mar = c(0, 0, 0, 0))
+maps::map("state", lwd = .25)
+
+## plot lat and lng points onto state map
+with(rt2, points(lng, lat, pch = 20, cex = .75, col = rgb(0, .3, .7, .75)))
+```
+
+
+# Conclusion
+I think this project is quite meaningful for me. Because I do learn a lot from this course lecture and homework. However, I do not have a time to review them in a comprehensive aspect. This project provide a chance to go over what I have learnt in this course. <br>
+I think my project touch upon most of the stuffs covered in the class. One thing I think I do not include is regular expression part because my data does not require related method. However, I do go over the regular expression stuffs and I think I get a comprehensive understanding on it because my HW grade on it is good. <br>
+Overall, I think this is the best course in this semester because I do learn a lot useful techinique and methods in this class and I believe that they are helpful in my future career. Thank you for your lecture!
 
 
 ```{r}
-
+#Variables that contains the user credentials to access Twitter API 
+# Replace AAA with the credentials you get for your Twitter developer account
+access_token = "803131058-YJHcJO0Xorur3lOzRvOwqLTDz64ftMsSBvYV5GTf"
+access_token_secret = "sTEAaSl2lkavRTXwPV7brUiPAmrtyMLOPIqBrk4nwVtIM"
+consumer_key = "tov89vja0cKNmma5vtNKLkWlH"
+consumer_secret = "RPRgcSP8B5kaPUSG6y8ptkJIPmOFFY714C7fRgK6kQt11AXxIB"
 ```
-
-
-
-```{r}
-
-```
-
-
-
-```{r}
-
-```
-
-
-
-```{r}
-
-```
-
-
-
-```{r}
-
-```
-
-
-```{r}
-
-```
-
-
-```{r}
-
-```
-
 
