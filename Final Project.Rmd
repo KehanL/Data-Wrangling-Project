@@ -1,8 +1,11 @@
 ---
-title: "Project"
-author: "Kehan Li"
-date: "4/29/2020"
-output: html_document
+title: "Data Wrangling Final Project"
+geometry: margin=1in
+header-includes: \usepackage{setspace}\doublespacing
+output:
+  html_document:
+    df_print: paged
+fontsize: 12pt
 ---
 
 ```{r setup, include=FALSE}
@@ -18,6 +21,10 @@ library(tidytext)
 library(rvest)
 library(twitteR)
 library(Lahman)
+library(gridExtra)
+library(grid)
+library(choroplethr)
+library(choroplethrMaps)
 ```
 
 ## Introduction
@@ -29,41 +36,92 @@ Master (people): Player names, dates of birth, death and other biographical info
 Batting: Player statistic of act of facing the opposing pitcher and trying to produce offense for one's team <br>
 Pitching: A pitch is the act of throwing a baseball toward home plate to start a play. <br>
 Fielding: The performance of each player. <br>
-```{r}
+The reason that I choose this dataset 
+<br>
 
+##facts about the People Data
+First we need to load the master data. I want to see the average weight and height of each year player. From the output we could tell that the average height does not vary a lot troughout years. However, the average weight does vary a lot. Even in consecutive years, for example, 1997 and 1998. The average weight has a difference about 20 pounds. And I also check the player statistic for 2019 MLB season, the average player weight is about 207 pounds. From the plot we also could see that the average height has consistently increase with a stable trend. However, the average weight jump around a lot throughout years. 
+```{r}
+Player.avg.weight <- Master%>%
+  select(playerID,birthYear,height, weight) %>%
+  group_by(birthYear) %>%
+  summarise_at(vars(weight), list(avg_weight  = mean)) 
+tail(Player.avg.weight)
+mean(Player.avg.weight$avg_weight, na.rm = TRUE)
+Player.avg.height <- Master%>%
+  select(playerID,birthYear,height, weight) %>%
+  group_by(birthYear) %>%
+  summarise_at(vars(height), list(avg_height  = mean)) 
+tail(Player.avg.height)
+mean(Player.avg.height$avg_height, na.rm = TRUE)
+
+plot1 = ggplot(data = Player.avg.weight,aes(birthYear, avg_weight)) +
+  geom_point() + ggtitle("Average Weight by year")+ theme(plot.title = element_text(hjust = 0.5)) +  scale_colour_discrete(name = "birth year")
+
+plot2 = ggplot(data = Player.avg.height,aes(birthYear, avg_height)) +
+  geom_point() + ggtitle("Average height by year")+ theme(plot.title = element_text(hjust = 0.5)) +  scale_colour_discrete(name = "birth year")
+grid.arrange(plot1, plot2, ncol=2)
 ```
+## State graph of Hall of Fame member 
+The National Baseball Hall of Fame is a nonprofit committed to preserving the history of America’s pastime and celebrating the legendary players, managers, umpires and executives who have made the game a fan favorite for more than a century. It is a pretty meaningful organization. <br> 
+I want to explore the number of members in Hall of Fame in each state. I decide to use inner join on playerID on player and Hall of fame tables to get the players who are in the Hall. Then I find out that there is state information in college playing, using inner join on them could help me get the state information. Then I get the number of players for each state. However, while I plan to use the choropleth graph function. I realize that one important issue I have not fixed. The state name are in abbr rather than the actual name. I first try to rename each row and I know this is a stupid method. It turns out that it does not work. <br>
 
+Therefore, I kind of cheat here. I first export the file to CSV, and rewrite the csv file, changing the abbreviation state name into the actual name. And then I could work on the graph. <br>
 
-
-
-First we need to load data. 
+From the graph we could see the state with the most number of Hall of Fame players are California, pennsylvania, and Indiana.
 ```{r}
-baseball1 = Master%>%
-  filter(!is.na(birthYear) &!is.na(nameFirst))
-
-baseball2 = baseball1%>%
-  select(birthYear,nameFirst)%>%
-  mutate(year= birthYear, names = nameFirst)%>%
-  group_by(year,names)%>%
+State.HallofFame.player <- Master %>%
+  inner_join(HallOfFame, by = "playerID") %>%
+  inner_join(CollegePlaying, by = "playerID") %>%
+  inner_join(Schools, by = "schoolID") %>%
+  select(playerID, birthYear, birthState, state, name_full )
+State.HallofFame.player.graph <- State.HallofFame.player %>%
+  group_by(birthState) %>%
   summarise(n = n())%>%
-  arrange(desc(n))
-head(baseball2)
+  arrange(desc(n)) %>%
+  mutate(value = n) %>%
+  select(-n,)
+State.HallofFame.player.graph <- State.HallofFame.player.graph %>%
+  mutate(region = birthState) %>%
+  select(region, value) %>%
+  na.omit(region)
 
-year_count = baseball2%>%
-  group_by(year)%>%
-  summarise(count = sum(n))
 
-nameUse = left_join(baseball2,year_count, by='year')%>%
-  mutate(prop=n/count,count=NULL)
-head(nameUse)
+head(State.HallofFame.player.graph)
+##write.csv(State.HallofFame.player.graph,"state.hallofFame.csv")
+State.HallofFame = read.csv("state.hallofFame.csv")
+state_choropleth(State.HallofFame, title = "Distribution of Hall of Fame Players in USA", num_colors = 9, legend = "num of Hall of Fame Players")
+```
+```{r}
+
+##region["PA"] <- "pennsylvania"
+##region["IN"] <- "indiana"
+##region["OH"] <- "ohio"
+##region["NY"] <- "new york"
+##region["IL"] <- "illinois"
+##region['AL'] <- "alabama"
+##region['MN'] <- "	minnesota"
+##region['FL'] <- "florida"
+##region['OK'] <- "oklahoma"
+##region['MA'] <- "massachusetts"
+##egion['LA'] <- "louisiana"
+##region['KY'] <- "kentucky"
+##region['MO'] <- "missouri"
+##region['VA'] <- "virginia"
+##region['TX'] <- "texas"
+##region['IA'] <- "iowa"
+##region['MD'] <- "maryland"
+##region['WI'] <- "wisconsin"
+##region['GA'] <- "georgia"
+
 ```
 
+
+
+
 ```{r}
-head(Fielding)
-summary(Fielding$G)
 Gnaremove= Fielding%>% 
   filter(!is.na(Fielding$G))
-head(Gnaremove)
 
 newfielding=Fielding%>%
   select(playerID,G)%>%
@@ -82,7 +140,34 @@ head(careertotal)
 
 
 ```{r}
+baseball1 = Master%>%
+  filter(!is.na(birthYear) &!is.na(nameFirst))
+baseball2 = baseball1%>%
+  select(birthYear,nameFirst)%>%
+  mutate(year= birthYear, names = nameFirst)%>%
+  group_by(year,names)%>%
+  summarise(n = n())%>%
+  arrange(desc(n))
+frequent_player <- careertotal %>%
+  filter(career_total >= 500)
+name_count <- inner_join(baseball1, frequent_player) %>%
+  select(playerID, nameFirst) %>%
+  group_by(nameFirst) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+name_count
+```
 
+```{r}
+popularName <- baseball2 %>%
+  filter(names == "Mike" | names == "Joe" | names == "John" | names == "Bill" | names == "Jim" ) %>%
+  arrange(names, year)
+popularName
+```
+
+```{r}
+ggplot(data=popularName, aes(year, n, color = names)) + geom_line() + ggtitle("5 Most Popular Names over Years in BaseBall Master") + xlab("Year") + ylab("Frequency") + theme(plot.title = element_text(hjust = 0.5)) +  scale_colour_discrete(name = "First Name")
+```
 ```
 
 
