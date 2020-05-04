@@ -116,7 +116,57 @@ state_choropleth(State.HallofFame, title = "Distribution of Hall of Fame Players
 
 ```
 
+## Largest slugging percentage 
+In baseball statistics, slugging percentage (SLG) is a measure of the batting productivity of a hitter. It is calculated as total bases divided by at bats, through the following formula, where AB is the number of at bats for a given player, and 1B, 2B, 3B, and HR are the number of singles, doubles, triples, and home runs, respectively. <br>
+Unlike batting average, slugging percentage gives more weight to extra-base hits such as doubles and home runs, relative to singles. Plate appearances resulting in walks are specifically excluded from this calculation, as an appearance that ends in a walk is not counted as an at bat. <br>
+From my perspective, it is one of the best criteria to qualify a baseball player. <br>
+We could not obtain the SLG using the orignal equation below, because we do not have the single score data. However, we have the number of hits a player make. Therefore, we could transform the equation to another one. <br>
+$$\begin{eqnarray}
+\ SLG& = &((1*B) +(2*2B) +(3*3B) +4*(HR))/AB \\
+&=&(1*(H-2B-3B-HR))+(2*2B) +(3*3B) +4*(HR))/AB \\
+&=&(1*H+2B + 2*3B + 4*HR)/AB
 
+\end{eqnarray}$$
+After figuring out the equation, we need to inner join on batting and player table to get the information we need. In order to prevent from too much information, I set the filter that only include players with more than 50 at-bats in the season. 
+```{r}
+head(Batting)
+SLG <- Batting %>%
+  filter(AB >50) %>%
+  inner_join(Master, by = "playerID") %>%
+  select(playerID,birthYear,nameFirst, nameLast, AB, H,X2B, X3B, HR) %>%
+  mutate(SLG = (H+X2B + 2*X3B +3 * HR)/AB) %>%
+  select(playerID, birthYear, nameFirst, nameLast, SLG) %>%
+  arrange(desc(SLG))
+head(SLG)
+```
+
+Above is the data in history and I want to 
+```{r}
+MLB2019.row <- "https://www.mlb.com/prospects/stats/draft-statistics" %>%
+  read_html()%>%
+  html_nodes("table")%>%
+  html_table(fill = TRUE)
+MLB2019 = MLB2019.row[[1]]
+```
+```{r}
+head(MLB2019)
+MLB2019 = MLB2019[1:26] %>%
+  na.omit()
+head(MLB2019)
+```
+
+## Salary
+The next thing I am interested in is about salaries.
+
+```{r}
+head(Salaries)
+salary.table <- Salaries %>%
+  group_by(teamID)%>%
+  summarize(AVG.salary  = mean(salary), MAX.salary = max(salary), MIN.salary = min(salary)) %>%
+  arrange(desc(AVG.salary))
+  
+head(salary.table)
+```
 
 
 ```{r}
